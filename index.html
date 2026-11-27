@@ -44,6 +44,27 @@
 .month-more{font-size:10px;color:#8695ab;padding:3px 4px}
 .month-empty{font-size:10px;color:#c0cad8;padding:5px 4px}
 @media(max-width:700px){.month-board{min-width:600px}.month-cell{min-height:100px;padding:5px}.month-item{font-size:10px}}
+
+/* Tasks page: optional calendar-events list. */
+.task-toolbar{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap}
+.events-toggle{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:#526784;cursor:pointer;border:1px solid #e4ebf5;border-radius:9px;background:#f9fbff;padding:8px 11px;white-space:nowrap}
+.events-toggle:hover{border-color:#afc3ff;background:#f1f5ff}
+.events-toggle input{width:16px;height:16px;margin:0;accent-color:var(--blue);cursor:pointer}
+.events-toggle span{display:inline-flex;align-items:center;gap:6px}
+.events-toggle svg{width:15px;height:15px;color:#567ce8}
+.task-events-section{border-top:1px solid #e9edf6;margin-top:14px;padding-top:10px}
+.task-events-section[hidden]{display:none!important}
+.task-events-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:8px 3px 1px}
+.task-events-heading h3{font-size:13px;color:#314461}
+.task-events-heading span{font-size:11px;color:#95a4b8}
+.task-event-symbol{width:36px;height:36px;display:grid;place-items:center;flex:0 0 36px;background:#eaf1ff;color:#5277e0;border-radius:10px}
+.task-event-symbol svg{width:18px;height:18px}
+.task-event-symbol.purple{background:#f1eaff;color:#745ac7}
+.task-event-symbol.green{background:#e6f6ef;color:#208c6c}
+.task-event-row{gap:13px}
+.task-event-row .task-copy strong{font-size:13px}
+.task-event-tag{font-size:10px;font-weight:720;color:#7790b0;background:#f1f5fb;border-radius:5px;padding:3px 7px;white-space:nowrap}
+@media(max-width:700px){.full-card-top{flex-wrap:wrap}.task-toolbar{justify-content:flex-start;width:100%;gap:8px}.task-toolbar .segmented{max-width:100%}.task-event-row{gap:9px}.task-event-symbol{width:30px;height:30px;flex-basis:30px}}
 </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer>
@@ -107,7 +128,7 @@ function exampleData(){const base=monday(new Date()),day=i=>dayISO(offsetDay(bas
   ],
   habits:[{id:newId(),name:'Move my body',checks:{}},{id:newId(),name:'Read 20 minutes',checks:{}},{id:newId(),name:'Drink enough water',checks:{}}]
 }}
-function blankData(){return {version:1,demo:false,widgets:{...DEFAULT_WIDGETS},clientId:'',notes:'',events:[],tasks:[],habits:[]}}
+function blankData(){return {version:1,demo:false,widgets:{...DEFAULT_WIDGETS},showEventsInTasks:false,clientId:'',notes:'',events:[],tasks:[],habits:[]}}
 function load(){try{let raw=localStorage.getItem(STORE);if(!raw)return exampleData();const d=JSON.parse(raw);if(!Array.isArray(d.events)||!Array.isArray(d.tasks))return exampleData();return {...blankData(),...d,widgets:{...DEFAULT_WIDGETS,...d.widgets}}}catch{return exampleData()}}
 let state=blankData(),currentPage='overview',currentMonday=monday(new Date()),currentMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1),calendarMode='week',taskFilter='all',recordType='task',googleToken='',toastTimer;
 let sb=null, cloudUser=null, cloudReady=false, cloudSaving=false, cloudDirty=false, cloudTimer=null, authGeneration=0;
@@ -180,7 +201,25 @@ function renderPriority(){let todo=state.tasks.filter(t=>!t.done).sort((a,b)=>{c
 function renderProgress(){const all=state.tasks.length,done=state.tasks.filter(t=>t.done).length,pct=all?Math.round(done/all*100):0;const totalHabits=state.habits.reduce((sum,h)=>sum+Object.values(h.checks||{}).filter(Boolean).length,0);$('#progress-card').innerHTML=`<div class="rail-card-head"><h3>Weekly momentum</h3><span style="color:#7798e9">${ic('activity')}</span></div><div class="progress-layout"><div class="progress-ring" style="--pct:${pct}%"><div class="progress-ring-inner"><strong>${pct}%</strong><span>complete</span></div></div><div class="progress-copy"><strong>${done} of ${all} tasks done</strong><p>Keep going at your own pace. Every small step counts.</p></div></div><div class="mini-progress-row"><span>Task progress</span><strong>${pct}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div><div class="mini-progress-row"><span>Habit check-ins</span><strong>${totalHabits}</strong></div>`}
 function habitTable(small=true,habitOnly=null){const dates=weekDates(),habits=habitOnly?[habitOnly]:state.habits;const h=`<div class="habit-grid-head"><span></span>${['M','T','W','T','F','S','S'].map(s=>`<span>${s}</span>`).join('')}</div>`;return h+(habits.length?habits.map(t=>`<div class="habit-grid-row"><span class="habit-name" title="${html(t.name)}">${html(t.name)}</span>${dates.map(iso=>`<button class="habit-day ${t.checks?.[iso]?'checked':''}" data-habit-id="${html(t.id)}" data-habit-date="${iso}" title="${html(t.name)} — ${iso}">${t.checks?.[iso]?'✓':'·'}</button>`).join('')}</div>`).join(''):'<div class="empty-state">Add your first habit to start tracking progress.</div>')}
 function renderWidgets(){const widgets=[];if(state.widgets.habits)widgets.push(`<section class="widget-card"><div class="widget-title"><strong>${ic('activity')} Habit tracker</strong><span class="widget-mini">This week</span></div>${habitTable()}<button class="text-link" data-page="habits" style="margin-top:14px">See habits ${ic('arrowRight')}</button></section>`);if(state.widgets.notes)widgets.push(`<section class="widget-card"><div class="widget-title"><strong>${ic('notebook')} Quick notes</strong><span class="widget-mini">Just for you</span></div><textarea id="widget-notes" class="notes-widget" placeholder="Write a note to your future self...">${html(state.notes)}</textarea><div class="note-save">${ic('checkCircle')} Auto-saved</div></section>`);if(state.widgets.goals){const all=state.tasks.length,done=state.tasks.filter(t=>t.done).length,pct=all?Math.round(done/all*100):0;let rows=[{name:'Finish my tasks',value:pct},{name:'Build daily habits',value:Math.min(100,Math.round(state.habits.reduce((s,h)=>s+Object.values(h.checks||{}).filter(Boolean).length,0)/(Math.max(state.habits.length,1)*7)*100))},{name:'Plan the week',value:Math.min(100,Math.round(state.events.filter(e=>datesInWeek().has(e.date)).length/5*100))}];widgets.push(`<section class="widget-card"><div class="widget-title"><strong>${ic('target')} Your goals</strong><span class="widget-mini">Progress</span></div>${rows.map(r=>`<div class="goal-row"><div class="goal-title"><span>${r.name}</span><strong>${r.value}%</strong></div><div class="progress-track"><div class="progress-fill" style="width:${r.value}%"></div></div></div>`).join('')}<div class="note-save">Based on your planner activity</div></section>`)}$('#widget-grid').innerHTML=widgets.length?widgets.join(''):`<div class="widget-card"><p class="empty-state">No widgets selected yet. <button class="text-link" data-action="customize">Add widgets ${ic('arrowRight')}</button></p></div>`}
-function renderTaskPage(){const source=state.tasks.slice().sort((a,b)=>Number(a.done)-Number(b.done)||a.date.localeCompare(b.date));const tasks=source.filter(t=>taskFilter==='all'||(taskFilter==='open'?!t.done:t.done));$('#task-list-summary').textContent=`${state.tasks.filter(t=>!t.done).length} to do · ${state.tasks.filter(t=>t.done).length} completed`;$all('#task-filters button').forEach(b=>b.classList.toggle('selected',b.dataset.filter===taskFilter));$('#full-task-list').innerHTML=tasks.length?tasks.map(t=>taskMarkup(t,true)).join(''):'<p class="empty-state">Nothing here yet. Use New task to get started.</p>'}
+function renderTaskPage(){
+  const source=state.tasks.slice().sort((a,b)=>Number(a.done)-Number(b.done)||(a.date||'').localeCompare(b.date||''));
+  const tasks=source.filter(t=>taskFilter==='all'||(taskFilter==='open'?!t.done:t.done));
+  const showEvents=!!state.showEventsInTasks;
+  $('#task-list-summary').textContent=`${state.tasks.filter(t=>!t.done).length} to do · ${state.tasks.filter(t=>t.done).length} completed${showEvents?' · '+state.events.length+' events visible':''}`;
+  $all('#task-filters button').forEach(b=>b.classList.toggle('selected',b.dataset.filter===taskFilter));
+  $('#task-show-events').checked=showEvents;
+  $('#full-task-list').innerHTML=tasks.length?tasks.map(t=>taskMarkup(t,true)).join(''):'<p class="empty-state">No tasks match this filter. Add a new task to get started.</p>';
+  const section=$('#full-event-list');
+  section.hidden=!showEvents;
+  if(!showEvents){section.innerHTML='';return;}
+  const events=state.events.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')||mins(a.start)-mins(b.start));
+  section.innerHTML=`<div class="task-events-heading"><h3>Calendar events</h3><span>${events.length} event${events.length===1?'':'s'}</span></div>`+
+    (events.length?events.map(e=>{
+      const local=!e.source||e.source==='local';
+      const when=[e.date?friendlyDate(e.date):'No date',[e.start,e.end].filter(Boolean).join('–')].filter(Boolean).join(' · ');
+      return `<div class="full-task task-event-row"><span class="task-event-symbol ${html(e.color||'blue')}">${ic('calendar')}</span><div class="task-copy"><strong>${html(e.title)}</strong><div class="task-detail"><span>${html(when)}</span><span class="task-event-tag">${local?'WeekFLOW event':'Imported calendar'}</span></div></div>${local?`<div class="list-actions"><button class="mini-icon-btn" type="button" data-event-id="${html(e.id)}" aria-label="Edit event ${html(e.title)}" title="Edit event">${ic('edit')}</button></div>`:''}</div>`;
+    }).join(''):'<p class="empty-state">No events yet. Add an event from the weekly planner.</p>');
+}
 function renderHabitPage(){let arr=state.habits.map(h=>`<div class="full-habit"><div class="full-habit-top"><strong>${html(h.name)}</strong><button class="mini-icon-btn" data-delete-habit="${html(h.id)}" title="Remove habit">${ic('trash')}</button></div>${habitTable(false,h)}</div>`);$('#full-habit-list').innerHTML=arr.length?arr.join(''):'<p class="empty-state">No habits yet. Add one to get started.</p>'}
 function renderNotesPage(){const el=$('#full-notes');if(document.activeElement!==el)el.value=state.notes}
 function page(name){currentPage=name;$all('.page-panel').forEach(x=>x.classList.toggle('hidden',x.id!==name+'-page'));$all('[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===name&&x.classList.contains('nav-button')));$('#breadcrumb-current').textContent=({overview:'Weekly planner',tasks:'My tasks',habits:'Habit tracker',notes:'Notes'})[name]||'Weekly planner';mobileMenu(false);window.scrollTo({top:0,behavior:'smooth'});render()}
@@ -278,6 +317,7 @@ function init(){initIcons();save();render();
     const tf=e.target.closest('[data-filter]');if(tf){taskFilter=tf.dataset.filter;renderTaskPage();return}
   });
   document.addEventListener('change',e=>{
+    if(e.target.matches('#task-show-events')){state.showEventsInTasks=e.target.checked;save();renderTaskPage();return}
     if(e.target.matches('[data-task-toggle]')){const t=state.tasks.find(x=>x.id===e.target.dataset.taskToggle);if(t){t.done=e.target.checked;save();render();toast(t.done?'Nice work! Task complete.':'Task moved back to your list.')}return}
     if(e.target.matches('[data-widget]')){state.widgets[e.target.dataset.widget]=e.target.checked;save();renderWidgets();return}
   });
@@ -366,7 +406,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
           <div class="widgets-grid" id="widget-grid"></div>
           <div class="bottom-caption"><span data-icon="lock"></span> Your planner syncs to your Supabase account. Google Calendar integration is optional.</div>
         </section>
-        <section id="tasks-page" class="page-panel hidden"><div class="page-heading"><div><div class="eyebrow">MY WORKSPACE</div><h1>Tasks, without the clutter.</h1><p>Capture, prioritize, and finish the things that matter.</p></div><button class="primary-btn" data-action="newTask"><span data-icon="plus"></span> New task</button></div><div class="surface full-card"><div class="full-card-top"><div><h2>All tasks</h2><p id="task-list-summary">Your priorities, organized.</p></div><div class="segmented" id="task-filters"><button class="selected" data-filter="all">All</button><button data-filter="open">To do</button><button data-filter="done">Completed</button></div></div><div id="full-task-list"></div></div></section>
+        <section id="tasks-page" class="page-panel hidden"><div class="page-heading"><div><div class="eyebrow">MY WORKSPACE</div><h1>Tasks, without the clutter.</h1><p>Capture, prioritize, and finish the things that matter.</p></div><button class="primary-btn" data-action="newTask"><span data-icon="plus"></span> New task</button></div><div class="surface full-card"><div class="full-card-top"><div><h2>All tasks</h2><p id="task-list-summary">Your priorities, organized.</p></div><div class="task-toolbar"><label for="task-show-events" class="events-toggle"><input id="task-show-events" type="checkbox" /><span><span data-icon="calendar"></span> Show events</span></label><div class="segmented" id="task-filters"><button class="selected" data-filter="all">All</button><button data-filter="open">To do</button><button data-filter="done">Completed</button></div></div></div><div id="full-task-list"></div><section id="full-event-list" class="task-events-section" hidden></section></div></section>
         <section id="habits-page" class="page-panel hidden"><div class="page-heading"><div><div class="eyebrow">BUILD CONSISTENCY</div><h1>Small steps. Big progress.</h1><p>Build a routine that works with your week.</p></div><button class="outline-btn" data-action="newHabit"><span data-icon="plus"></span> Add habit</button></div><div class="surface full-card"><div class="full-card-top"><div><h2>Habit tracker</h2><p>Check off each day you complete a habit.</p></div></div><div id="full-habit-list"></div></div></section>
         <section id="notes-page" class="page-panel hidden"><div class="page-heading"><div><div class="eyebrow">CLEAR YOUR MIND</div><h1>A place for your thoughts.</h1><p>Write down your plans, ideas, and little reminders.</p></div></div><div class="surface full-card note-page-card"><label for="full-notes">My weekly notes</label><textarea id="full-notes" placeholder="Things to remember this week…" aria-label="My weekly notes"></textarea><p class="autosave-label"><span data-icon="checkCircle"></span> Automatically saved to this browser</p></div></section>
       </div>
