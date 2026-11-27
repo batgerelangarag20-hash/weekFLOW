@@ -85,8 +85,8 @@ function uidDate(iso){return new Date(iso+'T00:00:00').getTime()}
 function mins(s){const a=String(s||'00:00').split(':').map(Number);return a[0]*60+a[1]}
 // Paste the two PUBLIC values from your Supabase project dashboard.
 // Never paste a secret/service_role key into this HTML file.
-const SUPABASE_URL = 'PASTE_SUPABASE_PROJECT_URL';
-const SUPABASE_PUBLISHABLE_KEY = 'PASTE_SUPABASE_PUBLISHABLE_KEY';
+const SUPABASE_URL = 'https://jgnwqmxjrpfjuyftngze.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_f_BWLo_U2Tgsuy6kjhSZeQ_HAR0WXYV';
 const STORE='weekflow-prototype-v1';
 const DEFAULT_WIDGETS={habits:true,notes:true,goals:true};
 function exampleData(){const base=monday(new Date()),day=i=>dayISO(offsetDay(base,i));return {
